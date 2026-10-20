@@ -1,0 +1,41 @@
+name: Build APK
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unzip project
+        run: unzip -o HeyGriha.zip
+      - name: Download Hindi model
+        run: |
+          cd HeyGriha/app/src/main/assets/model-hi
+          rm -f PUT_VOSK_HINDI_MODEL_HERE.txt
+          curl -L -o m.zip https://alphacephei.com/vosk/models/vosk-model-small-hi-0.22.zip
+          unzip -q m.zip
+          mv vosk-model-small-hi-0.22/* .
+          rmdir vosk-model-small-hi-0.22
+          rm m.zip
+          echo hi-1 > uuid
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+      - name: Build
+        working-directory: HeyGriha
+        run: gradle assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HeyGriha-apk
+          path: HeyGriha/app/build/outputs/apk/debug/app-debug.apk
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create v${{ github.run_number }} HeyGriha/app/build/outputs/apk/debug/app-debug.apk --title "Hey Griha v${{ github.run_number }}" --notes "Debug APK"
